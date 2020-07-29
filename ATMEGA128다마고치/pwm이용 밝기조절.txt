@@ -1,0 +1,53 @@
+#include<avr/io.h>
+#include<avr/interrupt.h>
+#include<util/delay.h>
+
+#define DEBOUNCING_DELAY 2000
+
+void msec_delay(int n);
+static volatile unsigned char duty=125;//초기 듀티비
+
+
+ISR(INT0_vect)
+{
+	duty+=100;
+	if(duty>=250)duty=250;
+
+	msec_delay(DEBOUNCING_DELAY);
+	while(~PIND&0x01);//스위치 해제 기다림
+	msec_delay(DEBOUNCING_DELAY);
+	EIFR=(1<<INTF0);//INT0인터럽트 플래그 리셋
+}
+
+ISR(INT1_vect)
+{
+	duty-=100;
+	if(duty<=5)duty=5;
+
+	msec_delay(DEBOUNCING_DELAY);
+	while(~PIND&0x02);//스위치 해제 기다림
+	msec_delay(DEBOUNCING_DELAY);
+	EIFR=(1<<INTF1);//INT0인터럽트 플래그 리셋
+}
+int main()
+{
+
+	DDRB|=(1<<DDB4);
+
+	TCCR0=(1<<WGM01)|(1<<WGM00)|(2<<COM00);
+	
+	EICRA=(2<<ISC10)|(2<<ISC00);
+	EIMSK=(1<<INT0)|(1<<INT1);//외부인터럽트 0,1허용
+	sei();//전역인터럽트허용
+	TCCR0|=(0x02<<CS00);//분주비8로 타이머시작
+	while(1)
+	{
+	OCR0=duty;//PWM신호의 듀티비를 바꾼다
+	}
+}
+void msec_delay(int n)
+{
+	for(;n>0;n--)
+	_delay_ms(1);
+}
+
